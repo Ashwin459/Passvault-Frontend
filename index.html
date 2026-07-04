@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PassVault</title>
+</head>
+<body>
+    <canvas id="matrix-bg"></canvas>
+    <div id="boot-sequence"></div>
+    <header>
+        <h2>Welcome to PassVault!</h2>
+    </header>
+    
+    <div id="first_two">
+        <div id="generate">
+            <form id="generate-form">
+                <button type="submit">Generate Password</button>
+            </form>
+            <p>
+                <strong id="generate-feedback" style="color: #00f7ff;">Click "Generate Password" to get a new password.</strong>
+            </p>
+        </div>
+
+        <div id="password-check-container">
+            <h2>Check Password Strength</h2>
+            <form id="password-form">
+                <label for="password-check">Enter Password:</label>
+                <input type="password" id="password-check" name="password" required>
+                <button type="submit">Check Strength</button>
+            </form>
+            <div id="strength-feedback"></div>
+        </div>
+    </div>
+
+    <div id="form-container">
+        <div id="create">
+            <form id="register-form">
+                <h3>Create Account to Store Passwords</h3>
+                <ul id="register-messages" style="color: red; list-style: none; padding: 0;"></ul>
+                
+                <label for="username-create">Username:</label>
+                <input type="text" id="username-create" required><br>
+
+                <label for="email">Email ID:</label>
+                <input type="email" id="email" required><br>
+
+                <label for="password-create">Password:</label>
+                <div class="password-wrapper">
+                    <input type="password" id="password-create" required>
+                    <span class="toggle-password" onclick="toggleVisibility('password-create', this)">[SHOW]</span>
+                </div><br>
+
+                <label for="cpass">Confirm Password:</label>
+                <div class="password-wrapper">
+                    <input type="password" id="cpass" required>
+                    <span class="toggle-password" onclick="toggleVisibility('cpass', this)">[SHOW]</span>
+                </div><br>
+
+
+                
+
+                <button type="submit">Sign Up!</button>
+            </form>
+        </div>
+
+        <div id="login">
+            <form id="login-form">
+                <h3>Login to Your Account</h3>
+                <ul id="login-messages" style="list-style: none; padding: 0;"></ul>
+    
+                <label for="username-login">Username:</label>
+                <input type="text" id="username-login" required><br>
+    
+                <label for="password-login">Password:</label>
+                <input type="password" id="password-login" required><br>
+    
+                <button type="submit">Login!</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = "http://127.0.0.1:5000/api";
+
+        // Password Visibility Toggle Logic
+        function toggleVisibility(inputId, toggleElement) {
+            const inputField = document.getElementById(inputId);
+            
+            if (inputField.type === "password") {
+                inputField.type = "text";
+                toggleElement.innerText = "[HIDE]";
+            } else {
+                inputField.type = "password";
+                toggleElement.innerText = "[SHOW]";
+            }
+        }
+
+        // Generate Password
+        document.getElementById('generate-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                const res = await fetch(`${API_BASE}/passwords/generate`, { method: 'POST' });
+                const data = await res.json();
+                document.getElementById('generate-feedback').innerText = `Generated Password: ${data.password}`;
+            } catch (err) {
+                document.getElementById('generate-feedback').innerText = "Error generating password.";
+            }
+        });
+
+        // Check Strength
+        // Check Strength
+document.getElementById('password-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const password = document.getElementById('password-check').value;
+    const feedbackBox = document.getElementById('strength-feedback');
+    
+    // Show a quick loading state for the cyber vibe
+    feedbackBox.innerHTML = "> CALCULATING SHANNON ENTROPY...";
+    
+    try {
+        const res = await fetch(`${API_BASE}/passwords/check-strength`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password })
+        });
+        const data = await res.json();
+        
+        // Determine color based on the numeric score (1 to 5)
+        let ratingColor = "#ff0000"; // Red for weak
+        if (data.score >= 4) ratingColor = "#00ff00"; // Green for strong
+        else if (data.score == 3) ratingColor = "#ffff00"; // Yellow for fair
+
+        // Cap the max score display at 100 so users understand it easily
+        let displayScore = Math.min(Math.round(data.entropy_bits), 100);
+
+        // Format the action items into a clean list
+        let logOutput = data.suggestions.length > 0 
+            ? "<br>&nbsp;&nbsp;[-] " + data.suggestions.join("<br>&nbsp;&nbsp;[-] ") 
+            : "<br>&nbsp;&nbsp;[+] OPTIMAL SECURITY ACHIEVED. NO VULNERABILITIES.";
+
+        // Format the output like an actionable terminal readout
+        feedbackBox.innerHTML = `
+            > THREAT RATING: <span style="color: ${ratingColor};">${data.strength.toUpperCase()}</span><br>
+            > SECURITY SCORE: <span style="color: #00ffff;">${displayScore} / 100</span><br>
+            > SYSTEM LOG: ${logOutput}
+        `;
+    } catch (err) {
+        feedbackBox.innerHTML = '> ERROR: SECURE CONNECTION REFUSED.';
+    }
+});
+
+        // Register Account
+        document.getElementById('register-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const msgBox = document.getElementById('register-messages');
+            const payload = {
+                username: document.getElementById('username-create').value,
+                email: document.getElementById('email').value,
+                password: document.getElementById('password-create').value,
+                cpass: document.getElementById('cpass').value
+            };
+
+            const res = await fetch(`${API_BASE}/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            
+            msgBox.innerHTML = `<li>${data.message}</li>`;
+            msgBox.style.color = res.ok ? "#0affc2" : "red";
+            if (res.ok) document.getElementById('register-form').reset();
+        });
+
+        // Login Account
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const msgBox = document.getElementById('login-messages');
+            const payload = {
+                username: document.getElementById('username-login').value,
+                password: document.getElementById('password-login').value
+            };
+
+            const res = await fetch(`${API_BASE}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+
+            msgBox.innerHTML = `<li>${data.message}</li>`;
+            if (res.ok) {
+                msgBox.style.color = "#0affc2";
+                // Store the logged-in user in the browser securely
+                localStorage.setItem("passvault_user", data.user.username);
+                // Redirect to the dashboard page
+                setTimeout(() => window.location.href = "dashboard.html", 1000);
+            } else {
+                msgBox.style.color = "red";
+            }
+        });
+    </script>
+    
+</body>
+<script src="cyber-core.js"></script>
+</html>

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Password Manager</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <canvas id="matrix-bg"></canvas>
+    <div id="boot-sequence"></div>
+    <div id="container">
+        <div id="add_pass">
+            <div id="add_password">
+                <form id="add-password-form">
+                    <h3>Create Account to Store Passwords</h3>
+                    <ul id="add-messages" style="list-style: none; padding: 0;"></ul>
+
+                    <label for="acc_name">Enter Account name:</label>
+                    <input type="text" id="acc_name" required><br>
+
+                    <label for="acc_username">Username:</label>
+                    <input type="text" id="acc_username" required><br>
+
+                    <label for="acc_password">Password:</label>
+                    <input type="password" id="acc_password" required><br>
+
+                    <label for="cpass">Confirm Password:</label>
+                    <input type="password" id="cpass" required><br>
+
+                    <button type="submit">Add Password to Vault</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="view_pass">
+            <h2>Your Stored Passwords</h2>
+            
+            <button id="refresh-vault-btn" style="margin-bottom: 20px;">Refresh Passwords</button>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Account Name</th>
+                        <th>Username</th>
+                        <th>Decrypted Password</th>
+                    </tr>
+                </thead>
+                <tbody id="vault-table-body">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+    <div id="logout_section">
+        <button id="logout-btn">Logout</button>
+    </div>
+
+    <script>
+        const API_BASE = "http://127.0.0.1:5000/api";
+        
+        // 1. Security Check: Ensure the user is actually logged in
+        const currentUser = localStorage.getItem("passvault_user");
+        if (!currentUser) {
+            alert("Unauthorized Access. Please login.");
+            window.location.href = "index.html";
+        }
+
+        // 2. Fetch and display passwords
+        async function fetchPasswords() {
+            const tbody = document.getElementById('vault-table-body');
+            tbody.innerHTML = "<tr><td colspan='3'>Decrypting vault...</td></tr>";
+
+            try {
+                const res = await fetch(`${API_BASE}/passwords?username=${encodeURIComponent(currentUser)}`);
+                const data = await res.json();
+
+                tbody.innerHTML = ""; // Clear loading message
+
+                if (data.passwords && data.passwords.length > 0) {
+                    data.passwords.forEach(pw => {
+                        const row = `<tr>
+                            <td>${pw.acc_name}</td>
+                            <td>${pw.acc_username}</td>
+                            <td>${pw.decrypted_password}</td>
+                        </tr>`;
+                        tbody.innerHTML += row;
+                    });
+                } else {
+                    tbody.innerHTML = "<tr><td colspan='3'>No stored passwords found.</td></tr>";
+                }
+            } catch (err) {
+                tbody.innerHTML = "<tr><td colspan='3' style='color:red;'>Error loading vault data.</td></tr>";
+            }
+        }
+
+        // Run fetch automatically on load
+        fetchPasswords();
+        // Allow manual refresh
+        document.getElementById('refresh-vault-btn').addEventListener('click', fetchPasswords);
+
+        // 3. Add a new password to the vault
+        document.getElementById('add-password-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const msgBox = document.getElementById('add-messages');
+            
+            const payload = {
+                username: currentUser,
+                acc_name: document.getElementById('acc_name').value,
+                acc_username: document.getElementById('acc_username').value,
+                acc_password: document.getElementById('acc_password').value,
+                cpass: document.getElementById('cpass').value
+            };
+
+            const res = await fetch(`${API_BASE}/passwords`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            const data = await res.json();
+            msgBox.innerHTML = `<li>${data.message}</li>`;
+            msgBox.style.color = res.ok ? "#0affc2" : "red";
+            
+            if (res.ok) {
+                document.getElementById('add-password-form').reset();
+                fetchPasswords(); // Instantly update the table below
+            }
+        });
+
+        // 4. Secure Logout Handle
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            localStorage.removeItem("passvault_user"); // Wipe the session
+            window.location.href = "index.html"; // Send back to login
+        });
+    </script>
+    
+</body>
+<script src="cyber-core.js"></script>
+</html>
