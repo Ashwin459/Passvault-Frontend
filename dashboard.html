@@ -55,87 +55,71 @@
     </div>
 
     <script>
-        // Use the exact Azure Backend URL
-        const API_BASE = "https://passback-eddwe0crd9fehpgc.centralindia-01.azurewebsites.net/api";
-        
-        const currentUser = localStorage.getItem("passvault_user");
-        if (!currentUser) {
-            alert("Unauthorized Access. Please login.");
-            window.location.href = "index.html";
-        }
+document.addEventListener("DOMContentLoaded", function() {
+    const API_BASE = "https://passback-eddwe0crd9fehpgc.centralindia-01.azurewebsites.net/api";
+    const currentUser = localStorage.getItem("passvault_user");
+    
+    if (!currentUser) {
+        window.location.href = "index.html";
+        return;
+    }
 
-        async function fetchPasswords() {
-            const tbody = document.getElementById('vault-table-body');
-            tbody.innerHTML = "<tr><td colspan='3'>Decrypting vault...</td></tr>";
+    // 1. Fetch Logic
+    async function fetchPasswords() {
+        const tbody = document.getElementById('vault-table-body');
+        if (!tbody) return;
+        tbody.innerHTML = "<tr><td colspan='3'>Decrypting...</td></tr>";
 
-            try {
-                const res = await fetch(`${API_BASE}/passwords?username=${encodeURIComponent(currentUser)}`);
-                if (!res.ok) throw new Error("Server responded with " + res.status);
-                
-                const data = await res.json();
-                tbody.innerHTML = ""; 
-
-                if (data.passwords && data.passwords.length > 0) {
-                    data.passwords.forEach(pw => {
-                        const row = `<tr>
-                            <td>${pw.acc_name}</td>
-                            <td>${pw.acc_username}</td>
-                            <td>${pw.decrypted_password}</td>
-                        </tr>`;
-                        tbody.innerHTML += row;
-                    });
-                } else {
-                    tbody.innerHTML = "<tr><td colspan='3'>No stored passwords found.</td></tr>";
-                }
-            } catch (err) {
-                console.error("DEBUG FETCH ERROR:", err);
-                tbody.innerHTML = "<tr><td colspan='3' style='color:red;'>Error loading data. Check console.</td></tr>";
-            }
-        }
-
-        document.getElementById('refresh-vault-btn').addEventListener('click', fetchPasswords);
-
-        document.getElementById('add-password-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const msgBox = document.getElementById('add-messages');
-            
-            const payload = {
-                username: currentUser,
-                acc_name: document.getElementById('acc_name').value,
-                acc_username: document.getElementById('acc_username').value,
-                acc_password: document.getElementById('acc_password').value,
-                cpass: document.getElementById('cpass').value
-            };
-
-            try {
-                const res = await fetch(`${API_BASE}/passwords`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+        try {
+            const res = await fetch(`${API_BASE}/passwords?username=${encodeURIComponent(currentUser)}`);
+            const data = await res.json();
+            tbody.innerHTML = "";
+            if (data.passwords?.length > 0) {
+                data.passwords.forEach(pw => {
+                    tbody.innerHTML += `<tr><td>${pw.acc_name}</td><td>${pw.acc_username}</td><td>${pw.decrypted_password}</td></tr>`;
                 });
-                
-                const data = await res.json();
-                msgBox.innerHTML = `<li>${data.message}</li>`;
-                msgBox.style.color = res.ok ? "#0affc2" : "red";
-                
-                if (res.ok) {
-                    document.getElementById('add-password-form').reset();
-                    fetchPasswords();
-                }
-            } catch (err) {
-                msgBox.innerHTML = "<li>Connection error. Check CORS settings.</li>";
-                msgBox.style.color = "red";
+            } else {
+                tbody.innerHTML = "<tr><td colspan='3'>No passwords found.</td></tr>";
             }
-        });
+        } catch (err) {
+            tbody.innerHTML = "<tr><td colspan='3' style='color:red;'>API Error. Check console.</td></tr>";
+            console.error(err);
+        }
+    }
 
-        document.getElementById('logout-btn').addEventListener('click', () => {
-            localStorage.removeItem("passvault_user");
-            window.location.href = "index.html";
+    // 2. Attach Listeners SAFELY
+    document.getElementById('refresh-vault-btn')?.addEventListener('click', fetchPasswords);
+    
+    document.getElementById('add-password-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const payload = {
+            username: currentUser,
+            acc_name: document.getElementById('acc_name').value,
+            acc_username: document.getElementById('acc_username').value,
+            acc_password: document.getElementById('acc_password').value,
+            cpass: document.getElementById('cpass').value
+        };
+        const res = await fetch(`${API_BASE}/passwords`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
         });
+        if (res.ok) {
+            document.getElementById('add-password-form').reset();
+            fetchPasswords();
+        } else {
+            alert("Failed to add password.");
+        }
+    });
 
-        // Initialize
-        fetchPasswords();
-    </script>
+    document.getElementById('logout-btn')?.addEventListener('click', () => {
+        localStorage.removeItem("passvault_user");
+        window.location.href = "index.html";
+    });
+
+    fetchPasswords();
+});
+</script>
     <script src="cyber-core.js"></script>
 </body>
 </html>
