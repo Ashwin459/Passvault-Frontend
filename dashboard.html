@@ -35,7 +35,6 @@
 
         <div id="view_pass">
             <h2>Your Stored Passwords</h2>
-            
             <button id="refresh-vault-btn" style="margin-bottom: 20px;">Refresh Passwords</button>
 
             <table>
@@ -47,7 +46,7 @@
                     </tr>
                 </thead>
                 <tbody id="vault-table-body">
-                    </tbody>
+                </tbody>
             </table>
         </div>
     </div>
@@ -56,25 +55,25 @@
     </div>
 
     <script>
+        // Use the exact Azure Backend URL
         const API_BASE = "https://passback-eddwe0crd9fehpgc.centralindia-01.azurewebsites.net/api";
         
-        // 1. Security Check: Ensure the user is actually logged in
         const currentUser = localStorage.getItem("passvault_user");
         if (!currentUser) {
             alert("Unauthorized Access. Please login.");
             window.location.href = "index.html";
         }
 
-        // 2. Fetch and display passwords
         async function fetchPasswords() {
             const tbody = document.getElementById('vault-table-body');
             tbody.innerHTML = "<tr><td colspan='3'>Decrypting vault...</td></tr>";
 
             try {
                 const res = await fetch(`${API_BASE}/passwords?username=${encodeURIComponent(currentUser)}`);
+                if (!res.ok) throw new Error("Server responded with " + res.status);
+                
                 const data = await res.json();
-
-                tbody.innerHTML = ""; // Clear loading message
+                tbody.innerHTML = ""; 
 
                 if (data.passwords && data.passwords.length > 0) {
                     data.passwords.forEach(pw => {
@@ -88,18 +87,14 @@
                 } else {
                     tbody.innerHTML = "<tr><td colspan='3'>No stored passwords found.</td></tr>";
                 }
-            } } catch (err) {
-    console.error("DEBUG FETCH ERROR:", err);
-    tbody.innerHTML = "<tr><td colspan='3' style='color:red;'>Error: " + err.message + "</td></tr>";
-}
+            } catch (err) {
+                console.error("DEBUG FETCH ERROR:", err);
+                tbody.innerHTML = "<tr><td colspan='3' style='color:red;'>Error loading data. Check console.</td></tr>";
+            }
         }
 
-        // Run fetch automatically on load
-        fetchPasswords();
-        // Allow manual refresh
         document.getElementById('refresh-vault-btn').addEventListener('click', fetchPasswords);
 
-        // 3. Add a new password to the vault
         document.getElementById('add-password-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const msgBox = document.getElementById('add-messages');
@@ -112,29 +107,35 @@
                 cpass: document.getElementById('cpass').value
             };
 
-            const res = await fetch(`${API_BASE}/passwords`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            
-            const data = await res.json();
-            msgBox.innerHTML = `<li>${data.message}</li>`;
-            msgBox.style.color = res.ok ? "#0affc2" : "red";
-            
-            if (res.ok) {
-                document.getElementById('add-password-form').reset();
-                fetchPasswords(); // Instantly update the table below
+            try {
+                const res = await fetch(`${API_BASE}/passwords`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await res.json();
+                msgBox.innerHTML = `<li>${data.message}</li>`;
+                msgBox.style.color = res.ok ? "#0affc2" : "red";
+                
+                if (res.ok) {
+                    document.getElementById('add-password-form').reset();
+                    fetchPasswords();
+                }
+            } catch (err) {
+                msgBox.innerHTML = "<li>Connection error. Check CORS settings.</li>";
+                msgBox.style.color = "red";
             }
         });
 
-        // 4. Secure Logout Handle
         document.getElementById('logout-btn').addEventListener('click', () => {
-            localStorage.removeItem("passvault_user"); // Wipe the session
-            window.location.href = "index.html"; // Send back to login
+            localStorage.removeItem("passvault_user");
+            window.location.href = "index.html";
         });
+
+        // Initialize
+        fetchPasswords();
     </script>
-    
+    <script src="cyber-core.js"></script>
 </body>
-<script src="cyber-core.js"></script>
 </html>
