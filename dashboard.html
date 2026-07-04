@@ -88,9 +88,10 @@
                 } else {
                     tbody.innerHTML = "<tr><td colspan='3'>No stored passwords found.</td></tr>";
                 }
-            } catch (err) {
-                tbody.innerHTML = "<tr><td colspan='3' style='color:red;'>Error loading vault data.</td></tr>";
-            }
+            } } catch (err) {
+    console.error("DEBUG FETCH ERROR:", err);
+    tbody.innerHTML = "<tr><td colspan='3' style='color:red;'>Error: " + err.message + "</td></tr>";
+}
         }
 
         // Run fetch automatically on load
